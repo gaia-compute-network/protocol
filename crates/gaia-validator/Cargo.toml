@@ -1,0 +1,19 @@
+[package]
+name = "gaia-validator"
+description = "Freivalds-based probabilistic validation and quorum consensus"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+gaia-core = { path = "../gaia-core" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
