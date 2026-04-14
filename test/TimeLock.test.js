@@ -96,15 +96,15 @@ describe("TimeLock", function () {
       const targetAddr = other.address;
       const callData = "0x";
 
-      const blockBefore = await ethers.provider.getBlockNumber();
-      const timeBefore = (await ethers.provider.getBlock(blockBefore)).timestamp;
-
-      await timeLock.connect(coordinator).queueAction(targetAddr, callData, "Test");
+      const tx = await timeLock.connect(coordinator).queueAction(targetAddr, callData, "Test");
+      const receipt = await tx.wait();
+      const block = await ethers.provider.getBlock(receipt.blockNumber);
+      const txTimestamp = BigInt(block.timestamp);
 
       const actionId = await timeLock.actionQueue(0);
       const action = await timeLock.queuedActions(actionId);
 
-      expect(action.executeAfter).to.equal(BigInt(timeBefore) + MINIMUM_DELAY);
+      expect(action.executeAfter).to.equal(txTimestamp + MINIMUM_DELAY);
     });
   });
 
@@ -335,9 +335,10 @@ describe("TimeLock", function () {
         "core_developer"
       );
 
+      // Advance to full vest (cliff + vesting period) so both members can claim 100%
       const genesis = await timeLock.genesisTimestamp();
-      const cliffEnds = genesis + TEAM_CLIFF;
-      await time.increaseTo(cliffEnds);
+      const fullVestEnds = genesis + TEAM_CLIFF + TEAM_VESTING_PERIOD;
+      await time.increaseTo(fullVestEnds);
 
       await timeLock.connect(teamMember1).claimTeamTokens();
       await timeLock.connect(teamMember2).claimTeamTokens();
@@ -421,8 +422,9 @@ describe("TimeLock", function () {
       expect(claimable).to.equal(0n); // Before cliff
 
       const genesis = await timeLock.genesisTimestamp();
-      const cliffEnds = genesis + TEAM_CLIFF;
-      await time.increaseTo(cliffEnds);
+      // Advance past cliff by 1 day so linear vesting has started
+      const pastCliff = genesis + TEAM_CLIFF + 86400n;
+      await time.increaseTo(pastCliff);
 
       const claimableAfter = await timeLock.claimableTeamTokens(teamMember1.address);
       expect(claimableAfter).to.be.greaterThan(0n);

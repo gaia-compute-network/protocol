@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./TaskRegistry.sol";
 import "./RewardDistributor.sol";
 
@@ -459,10 +460,4 @@ contract ValidationPool is ReentrancyGuard {
     function validatorCount() external view returns (uint256) {
         return validators.length;
     }
-}
-
-// Minimal interface for IERC20 usage in ValidationPool
-interface IERC20 {
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
 }

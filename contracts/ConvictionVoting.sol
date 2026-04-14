@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -101,7 +101,8 @@ contract ConvictionVoting is ReentrancyGuard {
         bytes callData;           // Encoded function call to execute if passed
         address targetContract;   // Contract to call on execution
         uint256 totalConviction;  // Accumulated conviction for this proposal
-        uint256 createdAt;        // Block number
+        uint256 createdAt;        // Block number of proposal creation
+        uint256 passedAt;         // Block number when proposal first passed threshold
         uint256 lastUpdated;      // Block number of last conviction update
         uint256 requiredConviction; // Threshold to pass
         bool executed;
@@ -273,6 +274,7 @@ contract ConvictionVoting is ReentrancyGuard {
             targetContract: targetContract,
             totalConviction: 0,
             createdAt: block.number,
+            passedAt: 0,
             lastUpdated: block.number,
             requiredConviction: required,
             executed: false
@@ -292,6 +294,8 @@ contract ConvictionVoting is ReentrancyGuard {
      * @param proposalId  The proposal to support
      */
     function allocateConviction(uint256 proposalId) external {
+        // Verify proposal exists (accessing a non-existent mapping returns default status ACTIVE)
+        require(proposalId > 0 && proposalId <= proposalCounter, "CV: proposal does not exist");
         Proposal storage proposal = proposals[proposalId];
         if (proposal.status != ProposalStatus.ACTIVE) {
             revert ProposalNotActive(proposalId);
@@ -327,10 +331,16 @@ contract ConvictionVoting is ReentrancyGuard {
         VoterState storage voter = voterStates[msg.sender];
         require(voter.votedProposal == proposalId, "CV: not voting on this proposal");
 
-        uint256 currentConviction = _currentConviction(voter);
-        proposals[proposalId].totalConviction -= currentConviction;
+        // Remove exactly what was credited to the proposal at last allocation.
+        // Using voter.conviction (not _currentConviction) prevents underflow when
+        // new blocks have passed since the last allocateConviction call.
+        uint256 creditedConviction = voter.conviction;
+        uint256 currentTotal = proposals[proposalId].totalConviction;
+        proposals[proposalId].totalConviction = currentTotal > creditedConviction
+            ? currentTotal - creditedConviction
+            : 0;
 
-        voter.conviction = currentConviction;
+        voter.conviction = 0;
         voter.lastBlock = block.number;
         voter.votedProposal = 0;
     }
@@ -349,12 +359,13 @@ contract ConvictionVoting is ReentrancyGuard {
             revert ProposalNotPassed(proposalId);
         }
 
-        // Conviction must have been building for minimum period
-        uint256 blocksBuilding = block.number - proposal.createdAt;
-        if (blocksBuilding < MIN_CONVICTION_BLOCKS) {
+        // Proposal must have been in PASSED state for minimum maturity period
+        // (prevents flash-loan governance attacks on newly-passed proposals)
+        uint256 blocksSincePassed = block.number - proposal.passedAt;
+        if (blocksSincePassed < MIN_CONVICTION_BLOCKS) {
             revert ConvictionNotMature(
                 proposalId,
-                MIN_CONVICTION_BLOCKS - blocksBuilding
+                MIN_CONVICTION_BLOCKS - blocksSincePassed
             );
         }
 
@@ -397,8 +408,10 @@ contract ConvictionVoting is ReentrancyGuard {
 
     function _checkProposalThreshold(uint256 proposalId) internal {
         Proposal storage proposal = proposals[proposalId];
-        if (proposal.totalConviction >= proposal.requiredConviction) {
+        if (proposal.totalConviction >= proposal.requiredConviction &&
+            proposal.status == ProposalStatus.ACTIVE) {
             proposal.status = ProposalStatus.PASSED;
+            proposal.passedAt = block.number;  // Record when it passed for maturity check
             emit ProposalPassed(proposalId, proposal.totalConviction);
         }
     }

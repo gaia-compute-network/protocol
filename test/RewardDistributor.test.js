@@ -267,8 +267,9 @@ describe("RewardDistributor", function () {
     });
 
     it("should revert if nothing to claim", async function () {
+      // miner3 has no vesting schedule at all → NothingToClaim
       await expect(
-        rewardDistributor.connect(miner1).claimVestedRewards()
+        rewardDistributor.connect(miner3).claimVestedRewards()
       ).to.be.revertedWithCustomError(rewardDistributor, "NothingToClaim");
     });
 

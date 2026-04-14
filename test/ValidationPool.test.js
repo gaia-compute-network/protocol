@@ -251,12 +251,10 @@ describe("ValidationPool", function () {
       await validationPool.connect(miner1).registerMiner();
     });
 
-    it("should emit MinerSlashed event", async function () {
-      const slashAmount = (MIN_MINER_STAKE * DISSENTER_SLASH_BPS) / 10000n;
-
-      await expect(
-        validationPool.connect(validator1)._slashMiner(miner1.address, 1, DISSENTER_SLASH_BPS, "test_slash")
-      ).to.be.reverted; // Internal function
+    it("_slashMiner is internal and not accessible externally", async function () {
+      // Internal functions are not part of the ABI — verifying the contract
+      // does not expose a public _slashMiner entry point.
+      expect(typeof validationPool._slashMiner).to.equal("undefined");
     });
 
     it("should track slashed amounts", async function () {

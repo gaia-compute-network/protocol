@@ -1,6 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { time, mine } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("ConvictionVoting", function () {
   let convictionVoting, gaiaToken;
@@ -269,7 +269,7 @@ describe("ConvictionVoting", function () {
 
       // Advance some blocks
       for (let i = 0; i < 10; i++) {
-        await time.mine(1);
+        await mine(1);
       }
 
       await convictionVoting.connect(voter1).allocateConviction(1);
@@ -297,6 +297,10 @@ describe("ConvictionVoting", function () {
     });
 
     it("should withdraw conviction", async function () {
+      // Mine a block so conviction > 0 and re-allocate to sync stored value
+      await mine(1);
+      await convictionVoting.connect(voter1).allocateConviction(1);
+
       const proposalBefore = await convictionVoting.proposals(1);
       const convictionBefore = proposalBefore.totalConviction;
 
@@ -327,11 +331,11 @@ describe("ConvictionVoting", function () {
         "0x"
       );
 
-      // Allocate enough conviction
+      // Allocate enough conviction.
+      // requiredConviction = totalLockedTokens × MAX_CONVICTION_PER_TOKEN × 33% ÷ 100%
+      // = 2000 GAIA × 1_000_000 × 0.33 = ~330,000 blocks of accumulation needed.
       await convictionVoting.connect(voter1).allocateConviction(1);
-      for (let i = 0; i < 100; i++) {
-        await time.mine(1);
-      }
+      await mine(340000);
       await convictionVoting.connect(voter1).allocateConviction(1);
     });
 
@@ -365,7 +369,7 @@ describe("ConvictionVoting", function () {
 
       // Advance enough blocks
       for (let i = 0; i < 40400; i++) {
-        await time.mine(1);
+        await mine(1);
       }
 
       await expect(
@@ -386,6 +390,10 @@ describe("ConvictionVoting", function () {
     it("should return conviction for voter", async function () {
       await gaiaToken.connect(voter1).approve(convictionVoting.getAddress(), LOCK_AMOUNT);
       await convictionVoting.connect(voter1).lockTokens(LOCK_AMOUNT);
+
+      // Conviction is 0 immediately after locking (same block).
+      // Mine 1 block so blocksHeld > 0 → conviction > 0.
+      await mine(1);
 
       const conviction = await convictionVoting.getVoterConviction(voter1.address);
       expect(conviction).to.be.greaterThan(0n);

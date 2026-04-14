@@ -26,7 +26,7 @@ describe("FrozenOracle", function () {
   describe("Deployment", function () {
     it("should set convictionVoting address", async function () {
       expect(await frozenOracle.convictionVoting()).to.equal(
-        convictionVoting.getAddress()
+        await convictionVoting.getAddress()
       );
     });
 
@@ -196,13 +196,13 @@ describe("FrozenOracle", function () {
       const nextWindow = await frozenOracle.nextUpdateWindow();
       await time.increaseTo(nextWindow);
 
-      const txBlock = await ethers.provider.getBlockNumber();
-      const txTime = (await ethers.provider.getBlock(txBlock)).timestamp;
-
-      await convictionVoting.executeOracleUpdate(frozenOracle.getAddress(), newHash, newCID);
+      const tx = await convictionVoting.executeOracleUpdate(frozenOracle.getAddress(), newHash, newCID);
+      const receipt = await tx.wait();
+      const txBlock = await ethers.provider.getBlock(receipt.blockNumber);
+      const txTime = BigInt(txBlock.timestamp);
 
       const newNextWindow = await frozenOracle.nextUpdateWindow();
-      expect(newNextWindow).to.equal(BigInt(txTime) + ORACLE_UPDATE_PERIOD);
+      expect(newNextWindow).to.equal(txTime + ORACLE_UPDATE_PERIOD);
     });
 
     it("should revert if new hash is zero", async function () {
@@ -227,7 +227,10 @@ describe("FrozenOracle", function () {
 
     it("should return years until next update window", async function () {
       const years = await frozenOracle.yearsUntilNextUpdateWindow();
-      expect(years).to.equal(10n);
+      // A few seconds elapse between deployment and this call, so integer division
+      // may give 9 instead of 10. Accept either.
+      expect(years).to.be.greaterThanOrEqual(9n);
+      expect(years).to.be.lessThanOrEqual(10n);
     });
 
     it("should return 0 years if update window is open", async function () {

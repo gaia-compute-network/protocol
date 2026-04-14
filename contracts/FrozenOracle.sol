@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 /**
  * @title FrozenOracle
@@ -185,7 +185,7 @@ contract FrozenOracle {
         _approveJobType(keccak256("marine_microplastics"),
             "Microplastics detection from spectroscopy or image data");
         _approveJobType(keccak256("freivalds_demo"),
-            "Protocol test / genesis demo — not for production use");
+            "Protocol test / genesis demo -- not for production use");
 
         emit OracleInitialized(_modelHash, _modelCID, block.timestamp);
     }
@@ -197,18 +197,18 @@ contract FrozenOracle {
     /**
      * @notice Check whether a job type is approved by the oracle.
      *         Reverts if not approved — TaskRegistry uses this as a gate.
-     * @param jobTypeId  keccak256 of the job type string
+     * @param _jobTypeId  keccak256 of the job type string
      */
-    function requireApproved(bytes32 jobTypeId) external view {
-        if (!isApprovedJobType[jobTypeId]) revert JobTypeNotApproved(jobTypeId);
+    function requireApproved(bytes32 _jobTypeId) external view {
+        if (!isApprovedJobType[_jobTypeId]) revert JobTypeNotApproved(_jobTypeId);
     }
 
     /**
      * @notice Returns true if the job type is in-scope, false otherwise.
      *         Non-reverting version for off-chain queries.
      */
-    function isInScope(bytes32 jobTypeId) external view returns (bool) {
-        return isApprovedJobType[jobTypeId];
+    function isInScope(bytes32 _jobTypeId) external view returns (bool) {
+        return isApprovedJobType[_jobTypeId];
     }
 
     /**

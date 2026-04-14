@@ -3,17 +3,19 @@ require("@nomicfoundation/hardhat-toolbox");
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.24",
     settings: {
       optimizer: {
         enabled: true,
         runs: 200
-      }
+      },
+      evmVersion: "cancun"
     }
   },
   networks: {
     hardhat: {
-      chainId: 31337
+      chainId: 31337,
+      hardfork: "cancun"
     },
     arbitrum_sepolia: {
       url: process.env.ARBITRUM_SEPOLIA_RPC || "https://sepolia-rollup.arbitrum.io/rpc",
@@ -27,7 +29,7 @@ module.exports = {
     }
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS \!== undefined,
+    enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD"
   },
   paths: {

@@ -203,10 +203,12 @@ describe("TaskRegistry", function () {
       const commitment = ethers.id("commitment");
       const fingerprint = ethers.id("fingerprint");
 
-      const otherAccount = (await ethers.getSigners())[4];
+      // signers[0..4] = owner, requester, miner1, miner2, miner3 (all assigned)
+      // Use signers[5] — a signer that was never assigned to any task
+      const stranger = (await ethers.getSigners())[5];
 
       await expect(
-        taskRegistry.connect(otherAccount).submitResult(1, resultHash, commitment, fingerprint)
+        taskRegistry.connect(stranger).submitResult(1, resultHash, commitment, fingerprint)
       ).to.be.revertedWithCustomError(taskRegistry, "NotAssignedMiner");
     });
 
