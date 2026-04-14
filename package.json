@@ -1,0 +1,22 @@
+{
+  "name": "gaia-protocol",
+  "version": "1.0.0",
+  "description": "GAIA Protocol — decentralized GPU compute for environmental science",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:gas": "REPORT_GAS=true hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network arbitrum_sepolia",
+    "node": "hardhat node",
+    "coverage": "hardhat coverage"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "chai": "^4.4.1",
+    "ethers": "^6.11.0"
+  },
+  "dependencies": {}
+}

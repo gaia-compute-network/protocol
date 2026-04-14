@@ -67,9 +67,15 @@ contract ValidationPool is ReentrancyGuard {
     // State
     // ────────────────────────────────────────────────────────────────────────────
 
-    TaskRegistry public immutable taskRegistry;
-    RewardDistributor public immutable rewardDistributor;
+    TaskRegistry public taskRegistry;
+    RewardDistributor public rewardDistributor;
     address public immutable gaiaToken;
+
+    /// @notice Deployer address — the only account allowed to call setAddresses()
+    address public immutable owner;
+
+    /// @notice Flag to prevent setAddresses() from being called more than once
+    bool private addressesSet = false;
 
     /// @notice Registered validator nodes (can run Freivalds verification)
     mapping(address => bool) public isValidator;
@@ -101,6 +107,7 @@ contract ValidationPool is ReentrancyGuard {
     // Events
     // ────────────────────────────────────────────────────────────────────────────
 
+    event AddressesSet(address indexed taskRegistry, address indexed rewardDistributor);
     event ValidatorRegistered(address indexed validator, uint256 stake);
     event MinerRegistered(address indexed miner, uint256 stake);
 
@@ -135,28 +142,65 @@ contract ValidationPool is ReentrancyGuard {
     // Errors
     // ────────────────────────────────────────────────────────────────────────────
 
+    error NotOwner();
     error NotRegisteredValidator();
     error InsufficientStake(uint256 provided, uint256 required);
     error TaskNotReadyForValidation(uint256 taskId);
     error ValidationAlreadyComplete(uint256 taskId);
     error InvalidFingerprint();
 
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Access control + Post-deployment address initialization
+    // ────────────────────────────────────────────────────────────────────────────
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    /**
+     * @notice Set taskRegistry and rewardDistributor addresses after deployment.
+     *         Can only be called once, and only by the deployer (owner).
+     *         This resolves the circular deployment dependency.
+     */
+    function setAddresses(
+        address _taskRegistry,
+        address _rewardDistributor
+    ) external onlyOwner {
+        require(!addressesSet, "VP: addresses already set");
+        require(_taskRegistry != address(0), "VP: zero taskRegistry");
+        require(_rewardDistributor != address(0), "VP: zero rewardDistributor");
+
+        taskRegistry = TaskRegistry(_taskRegistry);
+        rewardDistributor = RewardDistributor(_rewardDistributor);
+        addressesSet = true;
+
+        emit AddressesSet(_taskRegistry, _rewardDistributor);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Modifiers
+    // ────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * @notice Require that addresses have been set before calling critical functions
+     */
+    modifier requireAddressesSet() {
+        require(addressesSet, "VP: addresses not yet initialized");
+        _;
+    }
+
     // ────────────────────────────────────────────────────────────────────────────
     // Constructor
     // ────────────────────────────────────────────────────────────────────────────
 
     constructor(
-        address _taskRegistry,
-        address _rewardDistributor,
         address _gaiaToken
     ) {
-        require(_taskRegistry != address(0), "VP: zero taskRegistry");
-        require(_rewardDistributor != address(0), "VP: zero rewardDistributor");
         require(_gaiaToken != address(0), "VP: zero gaiaToken");
-
-        taskRegistry      = TaskRegistry(_taskRegistry);
-        rewardDistributor = RewardDistributor(_rewardDistributor);
-        gaiaToken         = _gaiaToken;
+        gaiaToken = _gaiaToken;
+        owner = msg.sender;
     }
 
     // ────────────────────────────────────────────────────────────────────────────
@@ -224,7 +268,7 @@ contract ValidationPool is ReentrancyGuard {
         bool freivaldsPassedMajority,
         bytes32 testedFingerprint,
         uint8 roundsExecuted
-    ) external nonReentrant {
+    ) external nonReentrant requireAddressesSet {
         if (!isValidator[msg.sender]) revert NotRegisteredValidator();
         if (validationComplete[taskId]) revert ValidationAlreadyComplete(taskId);
         if (!taskRegistry.isReadyForValidation(taskId)) {

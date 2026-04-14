@@ -71,8 +71,14 @@ contract RewardDistributor is ReentrancyGuard {
     // ────────────────────────────────────────────────────────────────────────────
 
     IERC20 public immutable gaiaToken;
-    address public immutable validationPool;
+    address public validationPool;
     address public treasury;
+
+    /// @notice Deployer address — the only account allowed to call setValidationPool()
+    address public immutable owner;
+
+    /// @notice Flag to prevent setValidationPool() from being called more than once
+    bool private validationPoolSet = false;
 
     /// @notice Vesting schedules per miner (append-only array)
     mapping(address => VestingSchedule[]) public vestingSchedules;
@@ -89,6 +95,7 @@ contract RewardDistributor is ReentrancyGuard {
     // Events
     // ────────────────────────────────────────────────────────────────────────────
 
+    event ValidationPoolSet(address indexed validationPool);
     event RewardVestingCreated(
         address indexed miner,
         uint256 indexed taskId,
@@ -123,6 +130,7 @@ contract RewardDistributor is ReentrancyGuard {
     // Errors
     // ────────────────────────────────────────────────────────────────────────────
 
+    error NotOwner();
     error NotValidationPool();
     error NothingToClaim();
     error TransferFailed();
@@ -133,16 +141,43 @@ contract RewardDistributor is ReentrancyGuard {
 
     constructor(
         address _gaiaToken,
-        address _validationPool,
         address _treasury
     ) {
-        require(_gaiaToken     != address(0), "RD: zero gaiaToken");
-        require(_validationPool != address(0), "RD: zero validationPool");
-        require(_treasury       != address(0), "RD: zero treasury");
+        require(_gaiaToken != address(0), "RD: zero gaiaToken");
+        require(_treasury  != address(0), "RD: zero treasury");
 
-        gaiaToken      = IERC20(_gaiaToken);
+        gaiaToken = IERC20(_gaiaToken);
+        treasury  = _treasury;
+        owner = msg.sender;
+    }
+
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Setter: Post-deployment validationPool initialization
+    // ────────────────────────────────────────────────────────────────────────────
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Access control
+    // ────────────────────────────────────────────────────────────────────────────
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    /**
+     * @notice Set validationPool address after deployment.
+     *         Can only be called once, and only by the deployer (owner).
+     *         This resolves the circular deployment dependency.
+     */
+    function setValidationPool(address _validationPool) external onlyOwner {
+        require(!validationPoolSet, "RD: validationPool already set");
+        require(_validationPool != address(0), "RD: zero validationPool");
+
         validationPool = _validationPool;
-        treasury       = _treasury;
+        validationPoolSet = true;
+
+        emit ValidationPoolSet(_validationPool);
     }
 
     // ────────────────────────────────────────────────────────────────────────────
